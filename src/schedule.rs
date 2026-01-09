@@ -17,7 +17,7 @@ pub fn generate_round_robin(mut players: Vec<Player>) {
     let odd = original_count % 2 == 1;
 
     if odd {
-        players.push(Player::new(BYE.to_string(), None));
+        players.push(Player::new(BYE.to_string()));
     }
 
     let n = players.len();
@@ -88,19 +88,19 @@ pub fn generate_round_robin(mut players: Vec<Player>) {
         }
     }
 
-    // Calculate Buchholz: sum of opponents' final points (bye counts as 0.5)
+    // Calculate Buchholz: sum of opponents' final points (bye counts as 1)
     for i in 0..n {
         if players[i].name == BYE { continue; }
-        let sum: f32 = opponents[i]
-            .iter()
-            .map(|&opp| if opp == usize::MAX { 0.5 } else { players[opp].points() })
-            .sum();
-        players[i].buchholz = sum;
+        let sum: i32 = opponents[i]
+          .iter()
+          .map(|&opp| if opp == usize::MAX {1} else { players[opp].points() as i32 })
+          .sum();
+        players[i].buchholz = sum as f32;
     }
 
     display_scoreboard(&players, original_count);
 }
-
+  
 fn assign_colors(players: &[Player], i: usize, j: usize) -> (usize, usize) {
     // Prefer the player with fewer whites to take white; tie-break by fewer blacks
     let p1 = &players[i];
@@ -118,9 +118,18 @@ fn prompt_and_record_result(players: &mut [Player], white: usize, black: usize) 
     let mut buf = String::new();
     io::stdin().read_line(&mut buf).ok();
     match buf.trim().parse::<i32>() {
-        Ok(1) => players[white].wins += 1,
-        Ok(-1) => players[black].wins += 1,
-        _ => { players[white].draws += 1; players[black].draws += 1; }
+        Ok(1) => {
+            players[white].wins += 1;
+            players[black].losses += 1;
+        }
+        Ok(-1) => {
+            players[black].wins += 1;
+            players[white].losses += 1;
+        }
+        _ => {
+            players[white].draws += 1;
+            players[black].draws += 1;
+        }
     }
 }
 

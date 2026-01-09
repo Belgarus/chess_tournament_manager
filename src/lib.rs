@@ -30,13 +30,7 @@ pub fn add_players() -> Vec<Player> {
         // Parse name and optional rating
         let parts: Vec<&str> = input.split(':').collect();
         let name = parts[0].to_string();
-        let rating = if parts.len() > 1 {
-            parts[1].parse::<u32>().ok()
-        } else {
-            None
-        };
-        
-        let player = Player::new(name, rating);
+        let player = Player::new(name);
         players.push(player);
     }
     
