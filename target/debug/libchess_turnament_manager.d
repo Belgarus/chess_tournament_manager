@@ -1,1 +1,0 @@
-/home/belgarus/Dokumente/GitHub/chess_tournament_manager/target/debug/libchess_turnament_manager.rlib: /home/belgarus/Dokumente/GitHub/chess_tournament_manager/src/lib.rs /home/belgarus/Dokumente/GitHub/chess_tournament_manager/src/player.rs /home/belgarus/Dokumente/GitHub/chess_tournament_manager/src/schedule.rs
