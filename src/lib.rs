@@ -7,8 +7,8 @@ use std::io::{self, Write};
 pub fn add_players() -> Vec<Player> {
     let mut players = Vec::new();
     
-    println!("Add players to the tournament:");
-    println!("Format: name[:rating] (rating is optional)");
+    println!("{}Add players to the tournament:{}", "\x1b[1;32m", "\x1b[0m");
+    println!("Format: name[:rating] (rating is optional, defaults to 1000)");
     println!("Press ENTER with no input to finish.\n");
     
     loop {
@@ -22,16 +22,25 @@ pub fn add_players() -> Vec<Player> {
         
         let input = input.trim();
         
-        // Exit on empty input
         if input.is_empty() {
             break;
         }
         
-        // Parse name and optional rating
         let parts: Vec<&str> = input.split(':').collect();
-        let name = parts[0].to_string();
-        let player = Player::new(name);
-        players.push(player);
+        let name = parts[0].trim().to_string();
+        
+        if name.is_empty() {
+            println!("{}Name cannot be empty.{}", "\x1b[1;31m", "\x1b[0m");
+            continue;
+        }
+        
+        let rating = if parts.len() > 1 {
+            parts[1].trim().parse::<u32>().unwrap_or(1000)
+        } else {
+            1000
+        };
+
+        players.push(Player::new(name, rating));
     }
     
     println!("\nAdded {} players to the tournament.\n", players.len());

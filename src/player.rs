@@ -1,6 +1,7 @@
 #[derive(Debug, Clone)]
 pub struct Player {
     pub name: String,
+    pub rating: u32,
     pub whites: u32,
     pub blacks: u32,
     pub wins: u32,
@@ -8,10 +9,12 @@ pub struct Player {
     pub losses: u32,
     pub buchholz: f32,
 }
+
 impl Player {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, rating: u32) -> Self {
         Self {
             name,
+            rating,
             whites: 0,
             blacks: 0,
             wins: 0,

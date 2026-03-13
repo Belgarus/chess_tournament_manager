@@ -1,165 +1,182 @@
 use crate::player::Player;
 use std::io::{self, Write};
 
-// ANSI color constants (kept small and readable)
+// ANSI color constants
 const BOLD: &str = "\x1b[1m";
 const GREEN: &str = "\x1b[32m";
 const ORANGE: &str = "\x1b[38;5;208m";
 const YELLOW: &str = "\x1b[33m";
+const CYAN: &str = "\x1b[36m";
 const RESET: &str = "\x1b[0m";
 const BYE: &str = "<bye>";
 
 /// Generate a Berger-style round-robin, prompt for results, then show standings.
-///
-/// This implementation is compact and avoids unnecessary clones and allocations.
 pub fn generate_round_robin(mut players: Vec<Player>) {
     let original_count = players.len();
-    let odd = original_count % 2 == 1;
+    if players.is_empty() {
+        println!("No players added. Exiting.");
+        return;
+    }
 
+    let odd = original_count % 2 == 1;
     if odd {
-        players.push(Player::new(BYE.to_string()));
+        players.push(Player::new(BYE.to_string(), 0));
     }
 
     let n = players.len();
+    // Indices for rotation (Circle Method)
+    let mut indices: Vec<usize> = (0..n).collect();
+    
+    // Track opponents by original index
+    let mut opponent_indices: Vec<Vec<usize>> = vec![Vec::new(); n];
 
-    // Track opponents by index; use usize::MAX to mark a bye opponent
-    let mut opponents: Vec<Vec<usize>> = vec![Vec::new(); n];
-
-    println!("{}Enter results: 1=white, 0=draw, -1=black{}\n", BOLD, RESET);
+    println!("{}Enter results: 1 = White Wins, 0 = Draw, -1 = Black Wins{}\n", BOLD, RESET);
 
     for round in 0..n - 1 {
-        println!("{}{}Round {}:{}", BOLD, ORANGE, round + 1, RESET);
+        println!("{}{}Round {}:{}", BOLD, CYAN, round + 1, RESET);
+        println!("{}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{}", CYAN, RESET);
+        
         let mut board = 1;
-        let mut round_pairs: Vec<(usize, usize)> = Vec::new();
+        let mut round_matches: Vec<(usize, usize)> = Vec::new();
 
         for i in 0..(n / 2) {
-            let a = i;
-            let b = n - 1 - i;
+            let p1_idx = indices[i];
+            let p2_idx = indices[n - 1 - i];
 
-            if players[a].name == BYE {
-                println!("{}{}{} gets a break", YELLOW, players[b].name, RESET);
-                opponents[b].push(usize::MAX);
+            if players[p1_idx].name == BYE {
+                println!("  {}{:<20}{} gets a break", YELLOW, players[p2_idx].name, RESET);
                 continue;
             }
-            if players[b].name == BYE {
-                println!("{}{}{} gets a break", YELLOW, players[a].name, RESET);
-                opponents[a].push(usize::MAX);
+            if players[p2_idx].name == BYE {
+                println!("  {}{:<20}{} gets a break", YELLOW, players[p1_idx].name, RESET);
                 continue;
             }
 
-            let (w, bl) = assign_colors(&players, a, b);
+            let (w_idx, b_idx) = assign_colors(&players, p1_idx, p2_idx);
+            
+            let w_padded = format!("{:<20}", players[w_idx].name);
+            let b_padded = format!("{:>20}", players[b_idx].name);
+
             println!(
-                "{}Board {}:{} {}{} (W){} vs {}{} (B){}",
-                GREEN,
-                board,
-                RESET,
-                BOLD,
-                players[w].name,
-                RESET,
-                ORANGE,
-                players[bl].name,
-                RESET
+                "  {}Board {}:{} {}{}{} (W) vs {}{}{} (B)",
+                BOLD, board, RESET,
+                GREEN, w_padded, RESET,
+                ORANGE, b_padded, RESET
             );
 
-            // record color history
-            players[w].whites += 1;
-            players[bl].blacks += 1;
+            players[w_idx].whites += 1;
+            players[b_idx].blacks += 1;
+            opponent_indices[w_idx].push(b_idx);
+            opponent_indices[b_idx].push(w_idx);
 
-            // record opponents for buchholz calculation later
-            opponents[w].push(bl);
-            opponents[bl].push(w);
-
-            round_pairs.push((w, bl));
+            round_matches.push((w_idx, b_idx));
             board += 1;
         }
 
-        // Prompt for results for this round's matches
-        for &(w, bl) in &round_pairs {
-            prompt_and_record_result(&mut players, w, bl);
+        // Collect results for the round
+        for (w_idx, b_idx) in round_matches {
+            prompt_and_record_result(&mut players, w_idx, b_idx);
         }
+        println!();
 
-        // rotate (circle method)
-        if round < n - 2 {
-            let last = players.pop().unwrap();
-            players.insert(1, last);
-            // keep opponents vector in sync with players rotation
-            let last_ops = opponents.pop().unwrap();
-            opponents.insert(1, last_ops);
-        }
+        // Rotate indices (keep 0 fixed, rotate the rest)
+        let last = indices.pop().unwrap();
+        indices.insert(1, last);
     }
 
-    // Calculate Buchholz: sum of opponents' final points (bye counts as 1)
+    // Calculate Buchholz (sum of opponents' final points)
     for i in 0..n {
         if players[i].name == BYE { continue; }
-        let sum: i32 = opponents[i]
-          .iter()
-          .map(|&opp| if opp == usize::MAX {1} else { players[opp].points() as i32 })
-          .sum();
-        players[i].buchholz = sum as f32;
+        let mut sum = 0.0;
+        for &opp_idx in &opponent_indices[i] {
+            sum += players[opp_idx].points();
+        }
+        players[i].buchholz = sum;
     }
 
-    display_scoreboard(&players, original_count);
+    display_scoreboard(&players);
 }
-  
+
 fn assign_colors(players: &[Player], i: usize, j: usize) -> (usize, usize) {
-    // Prefer the player with fewer whites to take white; tie-break by fewer blacks
     let p1 = &players[i];
     let p2 = &players[j];
+    
+    // Balance colors: choose the one who has played fewer games as white
     if p1.whites < p2.whites { (i, j) }
     else if p2.whites < p1.whites { (j, i) }
-    else if p1.blacks < p2.blacks { (i, j) }
+    // Tie-break: choose the one who has played more games as black
+    else if p1.blacks > p2.blacks { (i, j) }
     else { (j, i) }
 }
 
 fn prompt_and_record_result(players: &mut [Player], white: usize, black: usize) {
-    print!("Result for {} vs {} (1/0/-1): ", players[white].name, players[black].name);
-    io::stdout().flush().ok();
+    loop {
+        print!("  Result for {} vs {} (1/0/-1): ", players[white].name, players[black].name);
+        io::stdout().flush().ok();
 
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf).ok();
-    match buf.trim().parse::<i32>() {
-        Ok(1) => {
-            players[white].wins += 1;
-            players[black].losses += 1;
-        }
-        Ok(-1) => {
-            players[black].wins += 1;
-            players[white].losses += 1;
-        }
-        _ => {
-            players[white].draws += 1;
-            players[black].draws += 1;
+        let mut buf = String::new();
+        io::stdin().read_line(&mut buf).ok();
+        match buf.trim() {
+            "1" => {
+                players[white].wins += 1;
+                players[black].losses += 1;
+                break;
+            }
+            "0" => {
+                players[white].draws += 1;
+                players[black].draws += 1;
+                break;
+            }
+            "-1" => {
+                players[black].wins += 1;
+                players[white].losses += 1;
+                break;
+            }
+            _ => {
+                println!("  {}Invalid input. Please enter 1, 0, or -1.{}", YELLOW, RESET);
+            }
         }
     }
 }
 
-fn display_scoreboard(players: &[Player], original_count: usize) {
+fn display_scoreboard(players: &[Player]) {
     let mut list: Vec<&Player> = players.iter().filter(|p| p.name != BYE).collect();
+    
+    // Sort by points, then wins, then Buchholz, then rating
     list.sort_by(|a, b| {
-        b.points()
-            .partial_cmp(&a.points()).unwrap()
-            .then_with(|| b.buchholz.partial_cmp(&a.buchholz).unwrap())
+        b.points().partial_cmp(&a.points()).unwrap()
             .then_with(|| b.wins.cmp(&a.wins))
+            .then_with(|| b.buchholz.partial_cmp(&a.buchholz).unwrap())
+            .then_with(|| b.rating.cmp(&a.rating))
     });
 
-    let games = original_count - 1;
-    println!("\n{}{}{}", BOLD, GREEN, "\n=== FINAL STANDINGS ===");
-    println!("{}({} games per player - Round Robin)", RESET, games);
+    println!("\n{}{}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{}", BOLD, GREEN, RESET);
+    println!("{}{}┃                           FINAL STANDINGS                           ┃{}", BOLD, GREEN, RESET);
+    println!("{}{}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{}", BOLD, GREEN, RESET);
 
-    // Column widths are chosen to match the row formatting below
-    println!("Rank | {:<20} | {:>6} | {:>7} | {}", "Player", "Points", "Buchholz", "W D L");
-    println!("{}", "─".repeat(72));
+    println!(
+        " {}Rank | {:<20} | {:>6} | {:>5} | {:>8} | {:>5}{}",
+        BOLD, "Player", "Rating", "Score", "Buchholz", "W-D-L", RESET
+    );
+    println!(" ─────┼──────────────────────┼────────┼───────┼──────────┼───────");
+
     for (i, p) in list.iter().enumerate() {
+        let color = match i {
+            0 => "\x1b[1;33m", // Gold
+            1 => "\x1b[1;37m", // Silver
+            2 => "\x1b[1;38;5;130m", // Bronze
+            _ => "",
+        };
+
         println!(
-            "{:2}. | {:<20} | {:6.1} | {:7.1} | {} {} {}",
+            " {:4} | {}{:<20}{} | {:>6} | {:>5.1} | {:>8.1} | {}-{}-{}",
             i + 1,
-            p.name,
+            color, p.name, RESET,
+            p.rating,
             p.points(),
             p.buchholz,
-            p.wins,
-            p.draws,
-            p.losses
+            p.wins, p.draws, p.losses
         );
     }
-    println!("{}", "─".repeat(72));
+    println!(" ─────┴──────────────────────┴────────┴───────┴──────────┴───────\n");
 }
