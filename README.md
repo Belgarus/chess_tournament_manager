@@ -16,4 +16,4 @@ cargo run
 
 **UI:**  
 
-<img src="cli_example.png" width="90%" alt="image of an example cli output">
+<img src="cli_example2.png" width="90%" alt="image of an example cli output">
