@@ -8,7 +8,7 @@ pub fn add_players() -> Vec<Player> {
     let mut players = Vec::new();
     
     println!("{}Add players to the tournament:{}", "\x1b[1;32m", "\x1b[0m");
-    println!("Format: name[:rating] (rating is optional, defaults to 1000)");
+    println!("Format: name[:rating] (rating is optional, defaults to 1200)");
     println!("Press ENTER with no input to finish.\n");
     
     loop {
@@ -35,9 +35,9 @@ pub fn add_players() -> Vec<Player> {
         }
         
         let rating = if parts.len() > 1 {
-            parts[1].trim().parse::<u32>().unwrap_or(1000)
+            parts[1].trim().parse::<u32>().unwrap_or(1200)
         } else {
-            1000
+            1200
         };
 
         players.push(Player::new(name, rating));
