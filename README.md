@@ -11,7 +11,7 @@ Minimal CLI [round-robin](https://en.wikipedia.org/wiki/Round-robin_tournament) 
 // Requirement: cargo installed
 cargo run
 ```
-- Enter players as `Name[:rating]` (rating defaults to `1000`).
+- Enter players as `Name[:rating]` (rating defaults to `1200`).
 - Finish input with an empty line; follow on-screen prompts for results.
 
 **UI:**  
