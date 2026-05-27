@@ -1,4 +1,4 @@
-use crate::player::Player;
+use crate::player::{Color, Player};
 use std::io::{self, Write};
 
 // ANSI color constants
@@ -65,7 +65,9 @@ pub fn generate_round_robin(mut players: Vec<Player>) {
             );
 
             players[w_idx].whites += 1;
+            players[w_idx].last_color = Some(Color::White);
             players[b_idx].blacks += 1;
+            players[b_idx].last_color = Some(Color::Black);
             opponent_indices[w_idx].push(b_idx);
             opponent_indices[b_idx].push(w_idx);
 
@@ -97,16 +99,46 @@ pub fn generate_round_robin(mut players: Vec<Player>) {
     display_scoreboard(&players);
 }
 
+/// Assign white/black for a pairing.
+///
+/// 1. Alternate from the previous round when preferences do not conflict.
+/// 2. Otherwise balance lifetime white vs black counts across each player.
 fn assign_colors(players: &[Player], i: usize, j: usize) -> (usize, usize) {
+    let pref_i = players[i].last_color.map(Color::opposite);
+    let pref_j = players[j].last_color.map(Color::opposite);
+
+    match (pref_i, pref_j) {
+        (Some(Color::White), Some(Color::Black)) => (i, j),
+        (Some(Color::Black), Some(Color::White)) => (j, i),
+        (Some(Color::White), None) => (i, j),
+        (None, Some(Color::White)) => (j, i),
+        (Some(Color::Black), None) => (j, i),
+        (None, Some(Color::Black)) => (i, j),
+        _ => assign_colors_by_balance(players, i, j),
+    }
+}
+
+/// Pick white for the player who needs it most for equal color distribution.
+fn assign_colors_by_balance(players: &[Player], i: usize, j: usize) -> (usize, usize) {
     let p1 = &players[i];
     let p2 = &players[j];
-    
-    // Balance colors: choose the one who has played fewer games as white
-    if p1.whites < p2.whites { (i, j) }
-    else if p2.whites < p1.whites { (j, i) }
-    // Tie-break: choose the one who has played more games as black
-    else if p1.blacks > p2.blacks { (i, j) }
-    else { (j, i) }
+
+    let imbalance1 = p1.whites as i32 - p1.blacks as i32;
+    let imbalance2 = p2.whites as i32 - p2.blacks as i32;
+
+    if imbalance1 < imbalance2 {
+        (i, j)
+    } else if imbalance2 < imbalance1 {
+        (j, i)
+    } else if p1.whites < p2.whites {
+        (i, j)
+    } else if p2.whites < p1.whites {
+        (j, i)
+    } else if p1.rating >= p2.rating {
+        (i, j)
+    } else {
+        (j, i)
+    }
 }
 
 fn prompt_and_record_result(players: &mut [Player], white: usize, black: usize) {
@@ -179,4 +211,68 @@ fn display_scoreboard(players: &[Player]) {
         );
     }
     println!(" ─────┴──────────────────────┴────────┴───────┴──────────┴───────\n");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::player::Color;
+
+    fn player_with_colors(
+        name: &str,
+        whites: u32,
+        blacks: u32,
+        last: Option<Color>,
+    ) -> Player {
+        let mut p = Player::new(name.to_string(), 1200);
+        p.whites = whites;
+        p.blacks = blacks;
+        p.last_color = last;
+        p
+    }
+
+    #[test]
+    fn alternates_white_to_black() {
+        let players = vec![
+            player_with_colors("Alice", 1, 0, Some(Color::White)),
+            player_with_colors("Bob", 0, 1, Some(Color::Black)),
+        ];
+        assert_eq!(assign_colors(&players, 0, 1), (1, 0));
+    }
+
+    #[test]
+    fn alternates_black_to_white() {
+        let players = vec![
+            player_with_colors("Alice", 0, 1, Some(Color::Black)),
+            player_with_colors("Bob", 1, 0, Some(Color::White)),
+        ];
+        assert_eq!(assign_colors(&players, 0, 1), (0, 1));
+    }
+
+    #[test]
+    fn first_round_uses_balance() {
+        let players = vec![
+            player_with_colors("Alice", 0, 0, None),
+            player_with_colors("Bob", 1, 0, None),
+        ];
+        assert_eq!(assign_colors(&players, 0, 1), (0, 1));
+    }
+
+    #[test]
+    fn conflict_prefers_equal_distribution() {
+        let players = vec![
+            player_with_colors("Alice", 2, 0, Some(Color::White)),
+            player_with_colors("Bob", 0, 2, Some(Color::White)),
+        ];
+        assert_eq!(assign_colors(&players, 0, 1), (1, 0));
+    }
+
+    #[test]
+    fn honors_alternation_when_opponent_has_no_history() {
+        let players = vec![
+            player_with_colors("Alice", 1, 0, Some(Color::White)),
+            player_with_colors("Bob", 0, 0, None),
+        ];
+        assert_eq!(assign_colors(&players, 0, 1), (1, 0));
+    }
 }
