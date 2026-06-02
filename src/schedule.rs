@@ -1,7 +1,6 @@
 use crate::player::{Color, Player};
 use std::io::{self, Write};
 
-// ANSI color constants
 const BOLD: &str = "\x1b[1m";
 const GREEN: &str = "\x1b[32m";
 const ORANGE: &str = "\x1b[38;5;208m";
@@ -10,7 +9,6 @@ const CYAN: &str = "\x1b[36m";
 const RESET: &str = "\x1b[0m";
 const BYE: &str = "<bye>";
 
-/// Generate a Berger-style round-robin, prompt for results, then show standings.
 pub fn generate_round_robin(mut players: Vec<Player>) {
     let original_count = players.len();
     if players.is_empty() {
@@ -24,10 +22,8 @@ pub fn generate_round_robin(mut players: Vec<Player>) {
     }
 
     let n = players.len();
-    // Indices for rotation (Circle Method)
     let mut indices: Vec<usize> = (0..n).collect();
     
-    // Track opponents by original index
     let mut opponent_indices: Vec<Vec<usize>> = vec![Vec::new(); n];
 
     println!("{}Enter results: 1 = White Wins, 0 = Draw, -1 = Black Wins{}\n", BOLD, RESET);
@@ -75,18 +71,15 @@ pub fn generate_round_robin(mut players: Vec<Player>) {
             board += 1;
         }
 
-        // Collect results for the round
         for (w_idx, b_idx) in round_matches {
             prompt_and_record_result(&mut players, w_idx, b_idx);
         }
         println!();
 
-        // Rotate indices (keep 0 fixed, rotate the rest)
         let last = indices.pop().unwrap();
         indices.insert(1, last);
     }
 
-    // Calculate Buchholz (sum of opponents' final points)
     for i in 0..n {
         if players[i].name == BYE { continue; }
         let mut sum = 0.0;
@@ -99,10 +92,6 @@ pub fn generate_round_robin(mut players: Vec<Player>) {
     display_scoreboard(&players);
 }
 
-/// Assign white/black for a pairing.
-///
-/// 1. Alternate from the previous round when preferences do not conflict.
-/// 2. Otherwise balance lifetime white vs black counts across each player.
 fn assign_colors(players: &[Player], i: usize, j: usize) -> (usize, usize) {
     let pref_i = players[i].last_color.map(Color::opposite);
     let pref_j = players[j].last_color.map(Color::opposite);
@@ -118,7 +107,6 @@ fn assign_colors(players: &[Player], i: usize, j: usize) -> (usize, usize) {
     }
 }
 
-/// Pick white for the player who needs it most for equal color distribution.
 fn assign_colors_by_balance(players: &[Player], i: usize, j: usize) -> (usize, usize) {
     let p1 = &players[i];
     let p2 = &players[j];
@@ -174,7 +162,6 @@ fn prompt_and_record_result(players: &mut [Player], white: usize, black: usize) 
 fn display_scoreboard(players: &[Player]) {
     let mut list: Vec<&Player> = players.iter().filter(|p| p.name != BYE).collect();
     
-    // Sort by points, then wins, then Buchholz, then rating
     list.sort_by(|a, b| {
         b.points().partial_cmp(&a.points()).unwrap()
             .then_with(|| b.wins.cmp(&a.wins))
@@ -194,9 +181,9 @@ fn display_scoreboard(players: &[Player]) {
 
     for (i, p) in list.iter().enumerate() {
         let color = match i {
-            0 => "\x1b[1;33m", // Gold
-            1 => "\x1b[1;37m", // Silver
-            2 => "\x1b[1;38;5;130m", // Bronze
+            0 => "\x1b[1;33m", 
+            1 => "\x1b[1;37m", 
+            2 => "\x1b[1;38;5;130m", 
             _ => "",
         };
 
