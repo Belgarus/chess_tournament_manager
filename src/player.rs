@@ -19,7 +19,6 @@ pub struct Player {
     pub rating: u32,
     pub whites: u32,
     pub blacks: u32,
-    /// Color from the player's most recent game (unchanged on a bye).
     pub last_color: Option<Color>,
     pub wins: u32,
     pub draws: u32,
