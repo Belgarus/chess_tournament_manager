@@ -36,9 +36,11 @@ pub fn round_view(tournament: &Tournament, round: &Round, painter: &Painter) -> 
             None => painter.dim("pending"),
         };
         out.push_str(&format!(
-            " Board {:>2}: {} (W) vs {} (B)  {}\n",
+            " Board {}: {} {} vs {} {}  {}\n",
             game.board,
+            painter.green("(W)"),
             painter.green(white),
+            painter.orange("(B)"),
             painter.orange(black),
             result
         ));
