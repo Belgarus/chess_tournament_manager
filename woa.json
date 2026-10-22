@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "tournament": {
+    "name": "Woa",
+    "double_round_robin": false,
+    "players": [
+      {
+        "id": 0,
+        "name": "a",
+        "rating": 1200
+      },
+      {
+        "id": 1,
+        "name": "s",
+        "rating": 1200
+      }
+    ],
+    "rounds": [
+      {
+        "number": 1,
+        "games": [
+          {
+            "board": 1,
+            "white": 0,
+            "black": 1,
+            "result": null
+          }
+        ],
+        "bye": null
+      }
+    ]
+  }
+}
